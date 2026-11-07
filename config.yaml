@@ -1,0 +1,81 @@
+# ============================================================================
+# config.yaml — all tunable parameters live here (nothing hardcoded in code).
+# ============================================================================
+
+# --- Earth Engine project ---------------------------------------------------
+# Your registered noncommercial EE project ID. Code reads this; it is never
+# hardcoded in the source. >>> CONFIRM this is correct before running. <<<
+ee_project: "fswd-project-479113"
+
+# --- Sentinel-2 source ------------------------------------------------------
+s2_collection: "COPERNICUS/S2_SR_HARMONIZED"
+
+# Composite date windows [start, end]  (end is exclusive in EE filterDate)
+before: ["2019-06-01", "2019-09-30"]   # "before" / baseline year
+after:  ["2023-06-01", "2023-09-30"]   # "after"  / change year
+
+# Max per-scene cloud cover to admit into the median composite.
+# >>> The prototype used a specific value; set this to whatever your GEE
+#     Code Editor version used, or the Python numbers may drift from your
+#     validation target. 20 is a common default placeholder. <<<
+cloud_pct: 20
+
+# --- Change detection -------------------------------------------------------
+# NDVI difference below this => flagged as change (vegetation loss).
+threshold: -0.20
+
+# Resolution (metres) for reductions / scoring. Hansen & S2 both scored at 30 m.
+scale: 30
+
+# --- Ground truth (Hansen Global Forest Change) -----------------------------
+hansen_asset: "UMD/hansen/global_forest_change_2023_v1_11"
+# lossyear band encodes the year of loss as 1..23 (=> 2001..2023).
+# We count loss during 2020-2023 inclusive, i.e. lossyear in [20, 23].
+hansen_loss_min: 20
+hansen_loss_max: 23
+
+# --- Regions ----------------------------------------------------------------
+# Bounding boxes as [minLon, minLat, maxLon, maxLat].
+# 'dev' = the region used to validate the port against the prototype numbers.
+# 'test' = the remaining regions for the full five-region comparison.
+regions:
+  dev:
+    Rondonia: [-63.5, -9.5, -63.0, -9.0]
+  test:
+    Para:         [-50.5, -4.0, -50.0, -3.5]
+    MatoGrosso:   [-55.0, -12.0, -54.5, -11.5]
+    Sumatra:      [101.5, 0.0, 102.0, 0.5]
+    CentralIndia: [80.0, 19.0, 80.5, 19.5]
+
+# ============================================================================
+# Deep-learning patch dataset (Siamese network, built by build_dataset.py).
+# These control tiling + export only; they do NOT affect the existing pipeline.
+# ============================================================================
+dataset:
+  out_dir: "data"                    # root for patches/, previews/, manifest.csv
+  bands: ["B2", "B3", "B4", "B8"]    # stored per patch; add B11, B12 later here
+  patch_size: 256                    # pixels per patch side
+  scale_m: 10                        # metres per pixel (fixed 10 m grid)
+
+  # Cloud filter. Kept equal to the metrics pipeline's cloud_pct (20): a
+  # diagnostic (diag_coverage.py) confirmed the before/after composites already
+  # cover 100% of the region at this value, so there is no coverage reason to
+  # loosen it. Keeping it equal makes the dataset imagery consistent with the
+  # validated pipeline run.
+  cloud_pct: 20
+
+  valid_threshold: 0.8               # skip patches whose valid fraction < this
+  max_retries: 4                     # EE request retries before logging failure
+  backoff_s: 2.0                     # exponential back-off base (seconds)
+  preview_count: 10                  # how many random patches to render as PNG
+  preview_reflectance_max: 3000      # RGB display scaling (divide reflectance by this)
+
+  # --- region per-band means (saved to data/region_means.json) --------------
+  # Same method as src/normalise.py: ee.Reducer.mean, scale 30, maxPixels 1e9,
+  # bestEffort True. Lets the Siamese model be trained with/without normalisation.
+  means_scale_m: 30
+
+  # --- spatial-block train/val/test split (used in Step 3) ------------------
+  block_size: 2                      # group patches into block_size x block_size blocks
+  split_ratios: [0.70, 0.15, 0.15]   # train / val / test (by whole blocks)
+  seed: 42                           # fixed seed so splits are reproducible

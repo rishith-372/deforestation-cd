@@ -1,0 +1,12 @@
+# Exported dataset (large, regenerable from Earth Engine)
+data/
+
+# Trained model checkpoints (large; produced on Colab, not source)
+runs/
+
+# Python
+__pycache__/
+*.pyc
+
+# Pipeline output
+results.json

@@ -1,0 +1,22 @@
+# Python 3.11
+
+# --- core pipeline (main.py) + web app (app.py) ---
+earthengine-api     # Earth Engine Python API
+pyyaml              # read config.yaml
+pandas              # comparison table in main.py
+streamlit           # the web app
+
+# --- deep-learning dataset (build_dataset.py, src/dataset.py) ---
+numpy               # patch arrays
+matplotlib          # PNG sanity-check previews
+pyproj              # lon/lat -> UTM grid maths (local, exact)
+torch               # PyTorch Dataset / Siamese model (later step)
+
+# --- optional: interactive-map path (NOT used by default) ---
+# The app currently renders static thumbnails via ee.Image.getThumbURL +
+# st.image, because geemap.foliumap fails to import in some environments
+# (a geemap/basemap version clash). These three are only needed if you switch
+# app.py back to the interactive geemap/folium Leaflet map.
+geemap
+streamlit-folium
+folium
