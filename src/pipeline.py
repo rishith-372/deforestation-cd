@@ -16,10 +16,16 @@ does not shadow the imported normalise() function.
 
 import ee
 
-from src.acquire import s2_composite, hansen_truth
+from src.acquire import s2_composite, hansen_truth, scene_count
 from src.normalise import normalise
 from src.detect import change_map
 from src.evaluate import evaluate
+
+
+class EmptyCompositeError(ValueError):
+    """Raised when a date/region/cloud filter yields zero Sentinel-2 scenes, so
+    the composite has no bands and nothing can be analysed. Carries a human
+    message the app can show instead of a raw Earth Engine traceback."""
 
 
 def all_regions(cfg):
@@ -51,6 +57,25 @@ def build_scene(bbox, before, after, cfg, normalise_on):
         dict {region, before, after, detected, truth} of ee objects.
     """
     region = ee.Geometry.Rectangle(bbox)
+
+    # --- guard: make sure BOTH windows actually have scenes ------------------
+    # An empty collection -> median() with no bands -> select('B4') fails later
+    # with a cryptic "Image with no bands" error. We check scene counts up front
+    # (one combined getInfo) and raise a clear, actionable message instead.
+    n_before, n_after = ee.List([
+        scene_count(region, before[0], before[1], cfg["cloud_pct"], cfg["s2_collection"]),
+        scene_count(region, after[0], after[1], cfg["cloud_pct"], cfg["s2_collection"]),
+    ]).getInfo()
+    if n_before == 0 or n_after == 0:
+        raise EmptyCompositeError(
+            f"No Sentinel-2 scenes matched your filters "
+            f"(before window: {n_before} scenes, after window: {n_after} scenes), "
+            f"so the composite is empty and has no bands to analyse. "
+            f"Likely causes: the date window is too short, the region is too cloudy "
+            f"for cloud_pct<{cfg['cloud_pct']}, or the dates predate Sentinel-2 "
+            f"(available from 2017-03-28). Fix: widen the window (a few months, like "
+            f"the June–September defaults) or raise cloud_pct."
+        )
 
     # Raw composites (used for display, and as the basis for detection).
     before_raw = s2_composite(region, before[0], before[1], cfg["cloud_pct"], cfg["s2_collection"])

@@ -47,6 +47,24 @@ def s2_composite(region, start, end, cloud_pct, collection="COPERNICUS/S2_SR_HAR
     return composite
 
 
+def scene_count(region, start, end, cloud_pct, collection="COPERNICUS/S2_SR_HARMONIZED"):
+    """
+    How many Sentinel-2 scenes pass the SAME bounds/date/cloud filters that
+    s2_composite() uses. Returns a server-side ee.Number (call .getInfo() to read).
+
+    Used to detect an EMPTY composite before analysis: if this is 0, .median()
+    would produce a band-less image and any .select('B4') would fail with
+    "Band pattern 'B4' was applied to an Image with no bands".
+    """
+    return (
+        ee.ImageCollection(collection)
+        .filterBounds(region)
+        .filterDate(start, end)
+        .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", cloud_pct))
+        .size()
+    )
+
+
 def hansen_truth(region, y0, y1, asset="UMD/hansen/global_forest_change_2023_v1_11"):
     """
     Build the binary forest-loss ground-truth mask from Hansen GFC.

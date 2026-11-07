@@ -33,7 +33,7 @@ import ee
 import numpy as np
 import streamlit as st
 
-from src.pipeline import build_scene, all_regions
+from src.pipeline import build_scene, all_regions, EmptyCompositeError
 from src.evaluate import evaluate
 from src.visualize import (
     true_colour_vis,
@@ -191,6 +191,11 @@ b0, b1 = (date.fromisoformat(cfg["before"][0]), date.fromisoformat(cfg["before"]
 a0, a1 = (date.fromisoformat(cfg["after"][0]), date.fromisoformat(cfg["after"][1]))
 before_range = st.sidebar.date_input("Before window", value=(b0, b1))
 after_range = st.sidebar.date_input("After window", value=(a0, a1))
+st.sidebar.caption(
+    "💡 Use windows of a few months (the June–September defaults work best). "
+    "Very short windows — or very cloudy regions like Sumatra — can leave no "
+    "Sentinel-2 scene under the cloud filter, which has nothing to analyse."
+)
 
 normalise_on = st.sidebar.checkbox("Apply seasonal normalisation", value=True)
 run = st.sidebar.button("Run detection", type="primary")
@@ -221,11 +226,23 @@ if run:
     else:
         before = (bpair[0].isoformat(), bpair[1].isoformat())
         after = (apair[0].isoformat(), apair[1].isoformat())
-        with st.spinner("Earth Engine is computing composites and metrics ..."):
-            result = run_pipeline(
-                tuple(bbox), before, after, normalise_on,
-                cfg["cloud_pct"], cfg["threshold"], cfg["scale"],
+        try:
+            with st.spinner("Earth Engine is computing composites and metrics ..."):
+                result = run_pipeline(
+                    tuple(bbox), before, after, normalise_on,
+                    cfg["cloud_pct"], cfg["threshold"], cfg["scale"],
+                )
+        except EmptyCompositeError as e:
+            # No scenes in a window -> empty composite. Show the clear reason, not
+            # a raw Earth Engine traceback, and stop before trying to display.
+            st.error(f"⚠️ {e}")
+            st.stop()
+        except Exception as e:  # any other EE/runtime error: fail gracefully
+            st.error(
+                "Earth Engine could not complete this run. Check your auth / "
+                f"project ID, or try different settings.\n\nDetails: {e}"
             )
+            st.stop()
 
         # Baseline cache: key a run by everything EXCEPT the normalise flag, so a
         # baseline (normalise OFF) and a normalised run on the same region/dates
