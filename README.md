@@ -88,6 +88,36 @@ ee_project: "fswd-project-479113"   # <-- set this to YOUR project ID
 
 ---
 
+## Dataset (download or rebuild)
+
+The 2,154-patch training set (~1.5 GB) is **not** in git. Two ways to get it:
+
+**Download the prebuilt dataset** (fastest):
+
+```bash
+gh release download dataset-v1 --repo rishith-372/deforestation-cd
+```
+```bash
+unzip deforestation-patches-v1.zip
+```
+This recreates `data/` (patches, `manifest.csv`, `region_means.json`, previews).
+You can also grab the zip from the
+[Releases page](https://github.com/rishith-372/deforestation-cd/releases/tag/dataset-v1).
+
+**Or rebuild it from Earth Engine** (no download; needs EE auth):
+
+```bash
+python build_dataset.py
+```
+```bash
+python build_manifest.py
+```
+
+The patches are generated from Sentinel-2 + Hansen, so the rebuild reproduces the
+same dataset (modulo any Earth Engine catalog updates).
+
+---
+
 ## How to run
 
 ### 1. Batch comparison (headline numbers)
